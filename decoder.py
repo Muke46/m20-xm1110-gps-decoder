@@ -29,9 +29,9 @@ def parse_message(message):
     parsed_data["Lat"] = int.from_bytes(message[5:9], byteorder='big', signed=False) / 10e5
     parsed_data["Long"] = int.from_bytes(message[9:13], byteorder='big', signed=False) / 10e5
     parsed_data["alt"] = int.from_bytes(message[13:16], byteorder='big', signed=True) / 10e1
-    parsed_data["d_lat"] = int.from_bytes(message[16:18], byteorder='big', signed=True)
-    parsed_data["d_long"] = int.from_bytes(message[18:20], byteorder='big', signed=True)
-    parsed_data["d_alt"] = int.from_bytes(message[20:22], byteorder='big', signed=False)
+    parsed_data["d_lat"] = int.from_bytes(message[16:18], byteorder='big', signed=True) / 10e5
+    parsed_data["d_long"] = int.from_bytes(message[18:20], byteorder='big', signed=True) / 10e5
+    parsed_data["d_alt"] = int.from_bytes(message[20:22], byteorder='big', signed=True) / 10e2 # Doesn't seems to be right
     parsed_data["GPS_time"] = int.from_bytes(message[22:25], byteorder='big', signed=False)
     parsed_data["GPS_week"] = int.from_bytes(message[25:27], byteorder='big', signed=False)
     parsed_data["Decoded_time"] = gps_to_utc(parsed_data["GPS_week"], parsed_data["GPS_time"])
@@ -81,20 +81,33 @@ def read_from_serial(port='/dev/ttyUSB0', baudrate=38400):
 			            # Pretty print the message
                         print(f"Message (raw): {hex_message}")
                         print("\nParsed Data:")
-                        print(f"  Status         : {"Locked" if parsed_data['Status'] == 3 else "Unlocked"}")
-                        print(f"  Latitude       : {parsed_data['Lat']:.6f}°")
-                        print(f"  Longitude      : {parsed_data['Long']:.6f}°")
-                        print(f"  Altitude       : {parsed_data['alt']}m")
-                        print(f"  Delta Latitude : {parsed_data['d_lat']}")
-                        print(f"  Delta Longitude: {parsed_data['d_long']}")
-                        print(f"  Delta Altitude : {parsed_data['d_alt']}")
+                        if parsed_data['Status'] == 3:
+                            print(f"  Status         : Locked [3D]")
+                        elif parsed_data['Status'] == 2:
+                            print(f"  Status         : Locked (2D)")
+                        else:
+                            print(f"  Status         : Unlocked")
+                        if parsed_data['Status'] >= 2: 
+                            print(f"  Latitude       : {parsed_data['Lat']:.6f}°")
+                            print(f"  Longitude      : {parsed_data['Long']:.6f}°")
+                        else: 
+                            print(f"  Latitude       : - ")
+                            print(f"  Longitude      : - ")
+                        if parsed_data['Status'] == 3:
+                            print(f"  Altitude       : {parsed_data['alt']}m")
+                        else:
+                            print(f"  Altitude       : - ")
+                        print(f"  Delta Latitude : {'+' if parsed_data['d_lat'] > 0 else ''}{parsed_data['d_lat']}°")
+                        print(f"  Delta Longitude: {'+' if parsed_data['d_long'] > 0 else ''}{parsed_data['d_long']}°")
+                        print(f"  Delta Altitude : {'+' if parsed_data['d_alt'] > 0 else ''}{parsed_data['d_alt']}m")
                         print(f"  GPS Time       : {parsed_data['GPS_time']}")
                         print(f"  GPS Week       : {parsed_data['GPS_week']}")
                         print(f"  Decoded Time   : {parsed_data['Decoded_time']}")
                         print(f"  Satellites     : {parsed_data['SatN']}")
+                        print(f"  In use         : {len([x for x in parsed_data['satellite_numbers'] if x != 0])}")
                         print(f"  S/N Signal     : {' '.join(f'{x:02X}' for x in parsed_data['S/N_signal'])}")
-                        print(f"  Satellite Nos  : {' '.join(str(x) for x in parsed_data['satellite_numbers'])}")
-                        print(f"  Checksum       : {parsed_data['checksum']}")
+                        print(f"  Satellite PNR  : {' '.join(f'{x:02}' for x in parsed_data['satellite_numbers'])}")
+                        # print(f"  Checksum       : {parsed_data['checksum']}")
                         print("\n" + "-"*60)
 
     except serial.SerialException as e:
